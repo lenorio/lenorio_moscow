@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FACE — Лиза • типинг-эффект</title>
+  <style>
+    /* Базовая тема */
+    :root {
+      --bg: #000000;
+      --fg: #eaeaea;
+      --accent: #45ffa2;
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+      --width: 860px;
+      --line: 1.6;
+      --size: 18px;
+      --cursor-w: 2px;
+      --cursor-blink: 600ms;
+    }
+    html, body {
+      height: 100%;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: var(--font);
+      line-height: var(--line);
+      font-size: var(--size);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      display: grid;
+      place-items: start center;
+      padding: 48px 16px;
+    }
+
+    /* Контейнер текста */
+    .wrap {
+      width: 100%;
+      max-width: var(--width);
+    }
+
+    h1 {
+      margin: 0 0 16px 0;
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .hint {
+      margin: 0 0 24px 0;
+      color: #9aa0a6;
+      font-size: 14px;
+    }
+
+    /* Блок с печатью: текст изначально полностью в DOM (для SEO/доступности),
+       но скрывается визуально и «печатается» посимвольно. */
+    .typewriter {
+      position: relative;
+      white-space: pre-wrap; /* сохраняем переносы строк из текста */
+      word-wrap: break-word;
+      overflow: hidden;      /* скрываем «не напечатанное» */
+    }
+
+    /* Мигающий курсор */
+    .typewriter::after {
+      content: "";
+      position: absolute;
+      display: block;
+      width: var(--cursor-w);
+      top: 0;
+      bottom: 0;
+      right: 0;
+      background: var(--fg);
+      animation: blink var(--cursor-blink) steps(1, end) infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+
+    /* Пример моноширинного варианта для эффекта пишущей машинки (по желанию) */
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 17px;
+    }
+
+    /* Простой адаптивный отступ между куплетами */
+    .typewriter p {
+      margin: 0 0 16px 0;
+    }
+
+    /* Кнопки */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin: 24px 0 12px 0;
+    }
+    .btn {
+      appearance: none;
+      border: 1px solid #2a2a2a;
+      background: #121212;
+      color: var(--fg);
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: border-color .2s ease, background .2s ease;
+    }
+    .btn:hover {
+      border-color: #3a3a3a;
+      background: #161616;
+    }
+
+    /* Прокрутка длинного текста */
+    .scroll {
+      max-height: 70vh;
+      overflow: auto;
+      padding-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>FACE — Лиза</h1>
+    <p class="hint">Текст появляется с эффектом печати; можно запускать, ставить на паузу и менять скорость ниже.</p>
+
+    <div class="controls">
+      <button class="btn" id="play">Пуск</button>
+      <button class="btn" id="pause">Пауза</button>
+      <button class="btn" id="reset">Сброс</button>
+      <label class="btn" style="display:inline-flex; align-items:center; gap:8px;">
+        Скорость
+        <select id="speed" style="background:#121212;color:var(--fg);border:1px solid #2a2a2a;border-radius:6px;padding:6px;">
+          <option value="18">Медленно</option>
+          <option value="10" selected>Нормально</option>
+          <option value="4">Быстро</option>
+          <option value="2">Очень быстро</option>
+        </select>
+      </label>
+      <label class="btn" style="display:inline-flex; align-items:center; gap:8px;">
+        Шрифт
+        <select id="font" style="background:#121212;color:var(--fg);border:1px solid #2a2a2a;border-radius:6px;padding:6px;">
+          <option value="normal" selected>Обычный</option>
+          <option value="mono">Моноширинный</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- Контейнер прокрутки -->
+    <div class="scroll">
+      <!-- Элемент, внутри которого «печатаем» -->
+      <div id="tw" class="typewriter" aria-live="polite"></div>
+      <!-- Исходный текст кладём в шаблон, чтобы он был в DOM и доступен поиску/ридерам -->
+      <template id="lyrics">
+FACE — Лиза
+
+[Куплет]
+Лиза, я лишь хочу признаваться тебе,
+Что я с детства влюблён,
+Дать тепло батарей,
+Холод осени с Лизой заменим весной,
+Майский парк, на скамейках сидим мы с тобой.
+
+[Припев]
+Лиза... Лиза...
+
+[Фрагменты]
+Она мне говорит: «Как отлично», —
+Что я ей сказал, что взаимности ждой...
+В голове...
+
+(Подставной пример текста для демо. По желанию заменить на точный официальный текст при наличии прав.) 
+      </template>
+    </div>
+  </div>
+
+  <script>
+    // Доступный и SEO‑дружелюбный типинг:
+    // 1) Текст полностью в HTML (template). 2) Пишем посимвольно в видимый контейнер.
+    // Основа: простая рекурсивная печать через setTimeout, с управлением паузой/скоростью.
+    // Идея взята из общих туториалов по typing effect. 
+    // Управление
+    const el = document.getElementById('tw');
+    const tpl = document.getElementById('lyrics');
+    const text = (tpl.innerHTML || tpl.textContent).replace(/^\\s+|\\s+$/g, '');
+    const playBtn = document.getElementById('play');
+    const pauseBtn = document.getElementById('pause');
+    const resetBtn = document.getElementById('reset');
+    const speedSel = document.getElementById('speed');
+    const fontSel  = document.getElementById('font');
+
+    let i = 0;
+    let paused = true;
+    let timer = null;
+    let delay = parseInt(speedSel.value, 10);
+
+    function step() {
+      if (paused) return;
+      if (i < text.length) {
+        el.textContent += text.charAt(i);
+        i++;
+        timer = setTimeout(step, delay);
+      } else {
+        // в конце курсор оставляем на месте
+      }
+    }
+
+    function play() {
+      if (!paused) return;
+      paused = false;
+      step();
+    }
+    function pause() {
+      paused = true;
+      if (timer) clearTimeout(timer);
+    }
+    function reset() {
+      pause();
+      i = 0;
+      el.textContent = '';
+    }
+
+    playBtn.addEventListener('click', play);
+    pauseBtn.addEventListener('click', pause);
+    resetBtn.addEventListener('click', reset);
+    speedSel.addEventListener('change', (e) => {
+      delay = parseInt(e.target.value, 10);
+    });
+    fontSel.addEventListener('change', (e) => {
+      if (e.target.value === 'mono') el.classList.add('mono');
+      else el.classList.remove('mono');
+    });
+
+    // Автостарт
+    play();
+  </script>
+</body>
+</html>

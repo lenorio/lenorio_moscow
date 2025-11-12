@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>До Нового года</title>
+  <meta name="description" content="Красивая страница-отсчёт до Нового года" />
+  <style>
+    :root{
+      --bg1:#0f172a; --bg2:#1e293b; --acc:#60a5fa; --txt:#e2e8f0; --mut:#94a3b8;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,Arial;
+      color:var(--txt);
+      background:radial-gradient(1200px 800px at 70% -10%, #1f2a44 0%, var(--bg1) 55%), linear-gradient(160deg, var(--bg2), var(--bg1));
+      overflow:hidden;
+    }
+    /* subtle grain */
+    body::before{
+      content:""; position:fixed; inset:0; pointer-events:none;
+      background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 0 0 0 0 .06 .12 .2 .28 .36 .44'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='.25'/></svg>");
+      mix-blend-mode:soft-light;
+    }
+    .wrap{
+      min-height:100%; display:grid; place-items:center; text-align:center; padding:clamp(16px,3vw,32px);
+    }
+    .hero{
+      max-width:1100px; width:100%;
+      display:flex; flex-direction:column; gap:28px; align-items:center; justify-content:center;
+      animation:fadeIn .9s ease both;
+    }
+    h1{
+      margin:0; font-weight:800; letter-spacing:.02em;
+      font-size:clamp(28px,6vw,56px);
+      line-height:1.1;
+      background: linear-gradient(180deg,#fff, #cfe3ff 40%, #9ec1ff);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-shadow: 0 6px 24px rgba(96,165,250,.25);
+    }
+    .subtitle{
+      color:var(--mut);
+      font-size:clamp(14px,2.5vw,18px);
+    }
+    .timer{
+      display:grid; grid-template-columns: repeat(4,minmax(120px,1fr)); gap:14px; width:min(920px,100%);
+    }
+    .cell{
+      position:relative; padding:22px 16px; border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: 0 12px 30px rgba(15,23,42,.45), inset 0 1px 0 rgba(255,255,255,.06);
+      backdrop-filter: blur(6px);
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .cell:hover{ transform: translateY(-2px); box-shadow: 0 18px 36px rgba(15,23,42,.55), inset 0 1px 0 rgba(255,255,255,.08); }
+    .value{ font-variant-numeric:tabular-nums; font-size:clamp(34px,7vw,64px); font-weight:800; line-height:1; letter-spacing:.02em; }
+    .label{ margin-top:8px; color:var(--mut); text-transform:uppercase; font-size:12px; letter-spacing:.22em; }
+    .note{ margin-top:8px; color:var(--mut); font-size:12px; }
+    .footer{ margin-top:6px; color:var(--mut); font-size:12px; opacity:.8; }
+    @media (max-width:720px){ .timer{ grid-template-columns: repeat(2,1fr);} }
+    @keyframes fadeIn{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+    /* snow */
+    .snow{ position:fixed; inset:0; pointer-events:none; z-index:0; }
+    /* confetti on new year */
+    .confetti{ position:fixed; inset:0; pointer-events:none; z-index:5; }
+    .hidden{ display:none; }
+    .celebrate h1{ background: linear-gradient(180deg,#fff,#ffe28a 45%, #ffb347); text-shadow: 0 8px 30px rgba(255,179,71,.4); }
+  </style>
+</head>
+<body>
+  <canvas class="snow" id="snow" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="hero" id="hero">
+      <h1 id="title">До Нового года</h1>
+      <p class="subtitle">Отсчёт обновляется каждую секунду. </p>
+
+      <div class="timer" role="timer" aria-live="polite">
+        <div class="cell"><div class="value" id="d">00</div><div class="label">дней</div></div>
+        <div class="cell"><div class="value" id="h">00</div><div class="label">часов</div></div>
+        <div class="cell"><div class="value" id="m">00</div><div class="label">минут</div></div>
+        <div class="cell"><div class="value" id="s">00</div><div class="label">секунд</div></div>
+      </div>
+
+      <p class="note">
+        Ваше локальное время: <span id="ltime">—:—</span><span id="ltz" style="opacity:.85"></span>
+      </p>
+
+      <p class="footer">© lenorio.moscow</p>
+    </div>
+  </div>
+
+  <canvas class="confetti hidden" id="confetti" aria-hidden="true"></canvas>
+
+  <script>
+    // ---------- Time zone detection ----------
+    function getUserTimeZone() {
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. "Asia/Irkutsk"
+        if (tz && typeof tz === 'string') return tz;
+      } catch(e) {}
+      const offMin = -new Date().getTimezoneOffset();
+      const sign = offMin >= 0 ? '+' : '-';
+      const hh = String(Math.floor(Math.abs(offMin)/60)).padStart(2,'0');
+      const mm = String(Math.abs(offMin)%60).padStart(2,'0');
+      return `UTC${sign}${hh}:${mm}`;
+    }
+    const userTZ = getUserTimeZone();
+
+    const $ltime = document.getElementById('ltime');
+    const $ltz = document.getElementById('ltz');
+
+    function renderLocalClock() {
+      // Show HH:MM:SS and short time zone name if supported
+      const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' };
+      try {
+        $ltime.textContent = new Date().toLocaleString(undefined, opts);
+      } catch(e) {
+        $ltime.textContent = new Date().toLocaleTimeString();
+      }
+      $ltz.textContent = ` (${userTZ})`;
+    }
+    renderLocalClock();
+    setInterval(renderLocalClock, 1000);
+    // References: Intl API and toLocaleString() behavior. [MDN]
+
+    // ---------- Countdown logic (local time) ----------
+    function nextNY(){
+      const now = new Date();
+      // If it is already Jan 1 before 01:00, still celebrate then reset to next year after confetti.
+      const year = (now.getMonth()===0 && now.getDate()===1 && now.getHours()<1)
+        ? now.getFullYear()
+        : now.getFullYear() + 1;
+      return new Date(year, 0, 1, 0, 0, 0, 0);
+    }
+    let target = nextNY();
+
+    const $d = document.getElementById('d');
+    const $h = document.getElementById('h');
+    const $m = document.getElementById('m');
+    const $s = document.getElementById('s');
+    const hero = document.getElementById('hero');
+    const title = document.getElementById('title');
+
+    function pad(n){ return String(n).padStart(2,'0'); }
+
+    let iv = null;
+    function tick(){
+      const now = new Date();
+      let diff = target - now;
+      if(diff <= 0){
+        clearInterval(iv);
+        celebrate();
+        // After celebration, reset target to next Jan 1 and resume countdown
+        setTimeout(()=>{
+          target = nextNY();
+          title.textContent = 'До Нового года';
+          document.getElementById('confetti').classList.add('hidden');
+          hero.classList.remove('celebrate');
+          iv = setInterval(tick, 1000);
+        }, 12000);
+        return;
+      }
+      const d = Math.floor(diff / 86400000);
+      diff -= d*86400000;
+      const h = Math.floor(diff / 3600000);
+      diff -= h*3600000;
+      const m = Math.floor(diff / 60000);
+      diff -= m*60000;
+      const s = Math.floor(diff / 1000);
+      $d.textContent = pad(d);
+      $h.textContent = pad(h);
+      $m.textContent = pad(m);
+      $s.textContent = pad(s);
+    }
+    iv = setInterval(tick, 1000);
+    tick();
+
+    // ---------- Snow (canvas, lightweight) ----------
+    const snow = document.getElementById('snow');
+    const sctx = snow.getContext('2d');
+    let flakes = [];
+    function resize(){
+      snow.width = innerWidth; snow.height = innerHeight;
+    }
+    addEventListener('resize', resize); resize();
+    function spawnFlakes(n=120){
+      flakes = Array.from({length:n}).map(()=>({
+        x: Math.random()*snow.width,
+        y: Math.random()*-snow.height,
+        r: Math.random()*2.2 + .8,
+        spd: Math.random()*0.6 + 0.2,
+        drift: Math.random()*0.6 - 0.3
+      }));
+    }
+    spawnFlakes();
+    function drawSnow(){
+      sctx.clearRect(0,0,snow.width,snow.height);
+      sctx.fillStyle = 'rgba(255,255,255,.9)';
+      flakes.forEach(f=>{
+        f.y += f.spd; f.x += f.drift;
+        if(f.y > snow.height+6){ f.y = -6; f.x = Math.random()*snow.width; }
+        if(f.x < -6) f.x = snow.width+6; if(f.x > snow.width+6) f.x = -6;
+        sctx.beginPath(); sctx.arc(f.x,f.y,f.r,0,Math.PI*2); sctx.fill();
+      });
+      requestAnimationFrame(drawSnow);
+    }
+    requestAnimationFrame(drawSnow);
+
+    // ---------- Confetti on New Year ----------
+    const conf = document.getElementById('confetti');
+    const cctx = conf.getContext('2d');
+    function celebrate(){
+      title.textContent = 'С Новым годом!';
+      hero.classList.add('celebrate');
+      conf.width = innerWidth; conf.height = innerHeight;
+      document.getElementById('confetti').classList.remove('hidden');
+      const pieces = Array.from({length:220}).map(()=>({
+        x: Math.random()*conf.width,
+        y: -20 - Math.random()*conf.height,
+        w: 6+Math.random()*6,
+        h: 10+Math.random()*14,
+        vy: 2+Math.random()*3,
+        vx: -1+Math.random()*2,
+        rot: Math.random()*Math.PI,
+        vr: -.2+Math.random()*.4,
+        color: `hsl(${Math.floor(Math.random()*360)} 90% 60%)`
+      }));
+      let t = 0;
+      (function anim(){
+        cctx.clearRect(0,0,conf.width,conf.height);
+        pieces.forEach(p=>{
+          p.x+=p.vx; p.y+=p.vy; p.rot+=p.vr;
+          if(p.y>conf.height+30) { p.y = -20; p.x = Math.random()*conf.width; }
+          cctx.save(); cctx.translate(p.x,p.y); cctx.rotate(p.rot);
+          cctx.fillStyle = p.color; cctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+          cctx.restore();
+        });
+        if((t+=16) < 11000) requestAnimationFrame(anim);
+      })();
+    }
+  </script>
+</body>
+</html>

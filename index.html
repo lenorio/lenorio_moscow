@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Full Screen Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="music/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="app-layout" id="appLayout">
+    <!-- ЛЕВАЯ ЧАСТЬ -->
+    <div class="player-side">
+      <div class="cover-container">
+        <img id="cover" src="" class="cover-img" alt="Cover">
+        
+        <div class="controls-overlay">
+          <div class="ctrl-mid">
+            <button class="btn btn-trans"><i class="fa-solid fa-backward-step"></i></button>
+            <button id="playPause" class="btn btn-lg">
+              <i id="playIcon" class="fa-solid fa-play" style="margin-left:4px;"></i>
+              <i id="pauseIcon" class="fa-solid fa-pause" style="display:none;"></i>
+            </button>
+            <button class="btn btn-trans"><i class="fa-solid fa-forward-step"></i></button>
+            <button id="repeatBtn" class="btn btn-trans" style="width:30px; font-size:16px;" title="Повтор">
+              <i class="fa-solid fa-repeat"></i>
+            </button>
+          </div>
+
+          <div class="ctrl-bot">
+            <button id="menuBtn" class="btn btn-sm"><i class="fa-solid fa-ellipsis"></i></button>
+            <button id="lyricsBtn" class="btn btn-sm active" title="Текст"><i class="fa-solid fa-align-left"></i></button>
+            <button class="btn btn-sm"><i class="fa-regular fa-heart"></i></button>
+          </div>
+          
+          <!-- МЕНЮ -->
+          <div class="context-menu" id="contextMenu">
+            <a href="https://t.me/lenorio" target="_blank" class="menu-item">
+              <i class="fa-brands fa-telegram"></i> Telegram
+            </a>
+            <div class="menu-item" id="infoBtn">
+              <i class="fa-solid fa-circle-info"></i> О треке
+            </div>
+            <!-- ССЫЛКА НА СКАЧИВАНИЕ (замени #ССЫЛКА) -->
+            <a href="#ССЫЛКА" target="_blank" class="menu-item">
+              <i class="fa-solid fa-download"></i> Скачать
+            </a>
+            <!-- КНОПКА ПОДЕЛИТЬСЯ -->
+            <div class="menu-item" id="shareBtn">
+              <i class="fa-solid fa-share-nodes"></i> Поделиться
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="track-info">
+        <div class="track-title" id="title">Загрузка...</div>
+        <div class="track-artist" id="artist">Artist Name</div>
+      </div>
+
+      <div class="progress-wrap" id="progressBar">
+        <div class="progress-bg">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ПРАВАЯ ЧАСТЬ (ТЕКСТ) -->
+    <div class="lyrics-side" id="lyricsSide">
+      <div class="lyrics-container" id="lyricsContainer"></div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО -->
+  <div class="modal-overlay" id="infoModal">
+    <div class="modal-content">
+      <div class="modal-title">О треке</div>
+      <div id="metaInfo">Загрузка...</div>
+      <button class="modal-close" onclick="document.getElementById('infoModal').classList.remove('show')">Закрыть</button>
+    </div>
+  </div>
+
+  <audio id="player" src="/music/last.mp3"></audio>
+
+  <script type="module">
+    import { parseBlob } from 'https://cdn.jsdelivr.net/npm/music-metadata@11/+esm';
+
+    const srcMp3 = '/music/last.mp3';
+    const srcLrc = '/music/last.lrc';
+    const BACKUP_LYRICS = `
+[00:02.18] Магнит болит, не спит, мешает
+[00:07.91] Убить, забыть, не быть, не знаю
+[00:47.22] Привет
+`;
+
+    const player = document.getElementById('player');
+    const appLayout = document.getElementById('appLayout');
+    const playBtn = document.getElementById('playPause');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const repeatBtn = document.getElementById('repeatBtn');
+    const menuBtn = document.getElementById('menuBtn');
+    const contextMenu = document.getElementById('contextMenu');
+    const lyricsBtn = document.getElementById('lyricsBtn');
+    const infoBtn = document.getElementById('infoBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const infoModal = document.getElementById('infoModal');
+    const metaInfoDiv = document.getElementById('metaInfo');
+    const elTitle = document.getElementById('title');
+    const elArtist = document.getElementById('artist');
+    const elCover = document.getElementById('cover');
+    const fill = document.getElementById('progressFill');
+    const bar = document.getElementById('progressBar');
+    const lContainer = document.getElementById('lyricsContainer');
+
+    let lyricsData = [];
+    let activeIndex = -1;
+    let metaDataCache = {};
+    let repeatMode = 0;
+
+    // --- ОБРАБОТЧИКИ ---
+
+    // 1. Текст Вкл/Выкл
+    lyricsBtn.addEventListener('click', () => {
+      const isHidden = appLayout.classList.toggle('lyrics-hidden');
+      lyricsBtn.classList.toggle('active', !isHidden);
+    });
+
+    // 2. Меню
+    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); contextMenu.classList.toggle('show'); });
+    document.addEventListener('click', (e) => { if (!contextMenu.contains(e.target) && e.target !== menuBtn) contextMenu.classList.remove('show'); });
+
+    // 3. О треке
+    infoBtn.addEventListener('click', () => {
+      renderMetaInfo();
+      infoModal.classList.add('show');
+      contextMenu.classList.remove('show');
+    });
+
+    // 4. Поделиться
+    shareBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Ссылка скопирована!'); // Простой алерт, можно заменить на красивый тост
+        contextMenu.classList.remove('show');
+      } catch (err) {
+        console.error('Ошибка копирования', err);
+      }
+    });
+
+    // 5. Повтор
+    repeatBtn.addEventListener('click', () => {
+      repeatMode = (repeatMode + 1) % 3;
+      // Логика цвета: неактивен = дефолтный серый (через CSS класс), активен = белый (active)
+      if (repeatMode === 0) {
+        repeatBtn.classList.remove('active');
+        repeatBtn.innerHTML = '<i class="fa-solid fa-repeat"></i>';
+      } else {
+        repeatBtn.classList.add('active');
+        if (repeatMode === 2) {
+          repeatBtn.innerHTML = '<i class="fa-solid fa-repeat"></i><span style="font-size:10px; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-weight:900; color:black;">1</span>';
+        } else {
+          repeatBtn.innerHTML = '<i class="fa-solid fa-repeat"></i>';
+        }
+      }
+    });
+
+    player.addEventListener('ended', () => {
+        if(repeatMode === 2 || repeatMode === 1) { player.currentTime = 0; player.play(); }
+    });
+
+    function togglePlay() { if(player.paused) player.play(); else player.pause(); }
+    playBtn.addEventListener('click', togglePlay);
+    player.addEventListener('play', () => { playIcon.style.display='none'; pauseIcon.style.display='block'; });
+    player.addEventListener('pause', () => { playIcon.style.display='block'; pauseIcon.style.display='none'; });
+    
+    player.addEventListener('timeupdate', () => {
+      const pct = (player.currentTime / player.duration) * 100 || 0;
+      fill.style.width = pct + '%';
+      syncLyrics(player.currentTime);
+    });
+    bar.addEventListener('click', (e) => {
+      const rect = bar.getBoundingClientRect();
+      player.currentTime = player.duration * ((e.clientX - rect.left) / rect.width);
+    });
+
+    function parseLRC(text) {
+      const lines = text.split('\n');
+      const res = [];
+      const reg = /\[(\d{2}):(\d{2}\.\d{2})\]/;
+      lines.forEach(line => {
+        const m = line.match(reg);
+        if(m) res.push({ time: parseInt(m[1])*60 + parseFloat(m[2]), text: line.replace(reg, '').trim() });
+      });
+      return res.sort((a,b) => a.time - b.time);
+    }
+
+    function renderLyrics() {
+      lContainer.innerHTML = lyricsData.map((l, i) => `<div class="lyric-line" data-time="${l.time}">${l.text}</div>`).join('');
+      document.querySelectorAll('.lyric-line').forEach(el => el.addEventListener('click', () => { player.currentTime = parseFloat(el.dataset.time); player.play(); }));
+    }
+
+    function syncLyrics(time) {
+      if(!lyricsData.length) return;
+      let idx = -1;
+      for(let i=0; i<lyricsData.length; i++) { if(lyricsData[i].time <= time + 0.2) idx = i; else break; }
+      if(idx !== activeIndex) {
+        activeIndex = idx;
+        const all = document.querySelectorAll('.lyric-line');
+        all.forEach((el, i) => {
+          el.classList.toggle('active', i === activeIndex);
+          el.style.opacity = (i === activeIndex) ? '1' : '0.4';
+        });
+        if(activeIndex !== -1 && all[activeIndex]) all[activeIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    function renderMetaInfo() {
+      if (!metaDataCache.common) return;
+      const c = metaDataCache.common;
+      const rows = [['Название',c.title], ['Исполнитель',c.artist], ['Альбом',c.album], ['Год',c.year]];
+      metaInfoDiv.innerHTML = rows.map(r => `<div class="modal-row"><span style="color:#aaa">${r[0]}</span><span>${r[1]||'-'}</span></div>`).join('');
+    }
+
+    async function init() {
+      try {
+        const r = await fetch(srcMp3);
+        const blob = await r.blob();
+        const data = await parseBlob(blob);
+        metaDataCache = data;
+        const { common } = data;
+        elTitle.innerText = common.title || 'Без названия';
+        elArtist.innerText = common.artist || 'Неизвестен';
+        document.title = common.title || 'Player';
+        if(common.picture && common.picture[0]) elCover.src = URL.createObjectURL(new Blob([common.picture[0].data], {type: common.picture[0].format}));
+      } catch(e) { console.log(e); }
+
+      try {
+        const r2 = await fetch(srcLrc);
+        if(r2.ok) lyricsData = parseLRC(await r2.text());
+        else throw new Error();
+      } catch { lyricsData = parseLRC(BACKUP_LYRICS); }
+      renderLyrics();
+    }
+    init();
+  </script>
+</body>
+</html>

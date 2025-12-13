@@ -4,9 +4,14 @@
   "users": {
     "997421393106980924": [
       {
-        "mod": "Vencord",
-        "tooltip": "GODELESS",
-        "badge": "https://github.com/tickcount/.p2c-icons/blob/main/neverlose2.png?raw=true"
+        "mod": "reviewdb",
+        "tooltip": "API owner",
+        "badge": "https://store.steampowered.com/favicon.ico"
+      },
+      {
+        "mod": "reviewdb",
+        "tooltip": "t.me/lenorio",
+        "badge": "https://t.me/favicon.ico"
       }
     ]
   }
